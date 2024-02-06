@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='styles.css') }}">
+    <title>Home</title>
+</head>
+
+<body>
+    <header>
+        <h1>Book Directory and Reviewer</h1>
+    </header>
+
+    <section>
+        <p>
+            To get started, please <a href="{{ url_for('register') }}">register</a> or
+            <a href="{{ url_for('login') }}">log in</a>.
+        </p>
+    </section>
+</body>
+
+</html>

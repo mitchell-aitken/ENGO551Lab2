@@ -1,0 +1,33 @@
+body {
+    font-family: 'Arial', sans-serif;
+    margin: 0;
+    padding: 0;
+}
+
+header {
+    background-image: url('/static/images/bookBG.jpg');
+    background-size: cover;
+    text-align: center;
+    padding: 3em 1em;
+    color: white;
+}
+
+header h1 {
+    font-size: 2em;
+    margin-bottom: 0.5em;
+}
+
+section {
+    margin: 1em;
+}
+
+/* Styling hyperlinks */
+a {
+    color: #3498db; /* Light blue color */
+    text-decoration: none; /* Remove underlines */
+    transition: color 0.3s; /* Smooth color transition on hover */
+}
+
+a:hover {
+    color: #2ecc71; /* Green color on hover */
+}
