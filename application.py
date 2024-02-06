@@ -201,9 +201,6 @@ def get_google_books_review_data(isbn):
     return {"averageRating": "N/A", "ratingsCount": "N/A", "textSnippet": "Description not available."}
 
 
-
-
-#not sure if I actually need this or not
 class Review(Base):
     __tablename__ = 'reviews'
 
@@ -287,7 +284,7 @@ def book(isbn):
 
     return render_template('book.html', book=book, reviews=reviews, google_books_data=google_books_data)
 
-@app.route("/api/<isbn>")
+@app.route("/api/<isbn>") # NEW for task #4
 def api_isbn(isbn):
     # Query the database for the book with the provided ISBN
     book = db.execute(text("SELECT * FROM books WHERE isbn = :isbn"), {"isbn": isbn}).fetchone()
@@ -296,7 +293,7 @@ def api_isbn(isbn):
     if book is None:
         return jsonify({"error": "Invalid ISBN"}), 404
 
-    # Query the database for review statistics for the book
+    # extra query to get stuff
     review_stats = db.execute(text("""
         SELECT COUNT(*) AS review_count, AVG(rating) AS average_rating
         FROM reviews
@@ -304,7 +301,7 @@ def api_isbn(isbn):
         GROUP BY isbn
     """), {"isbn": isbn}).fetchone()
 
-    # Prepare the JSON response
+    #json response
     response = {
         "title": book.title,
         "author": book.author,
