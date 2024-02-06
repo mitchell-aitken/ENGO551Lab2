@@ -55,10 +55,6 @@ def load_user(user_id):
         return User(user.id)
     return None
 
-#@app.route("/")
-#def index():
-  #  return "Project 1: TODO"
-
 @app.route("/")
 def index():
     return render_template("index.html")
@@ -113,7 +109,7 @@ def logout():
     return redirect(url_for("index"))
 
 
-# FUNCTION TO SEARCH BOOKS
+# ****** FUNCTION TO SEARCH BOOKS *******
 def search_books(db, search_query):
     # Perform a case-insensitive search on ISBN, title, and author
     query = text("""
@@ -123,8 +119,7 @@ def search_books(db, search_query):
            OR LOWER(author) LIKE LOWER(:search_query)
     """)
 
-    # Execute the query with the search query as a parameter
-    results = db.execute(query, {"search_query": f"%{search_query}%"}).fetchall()
+    results = db.execute(query, {"search_query": f"%{search_query}%"}).fetchall()     # execute the query with the search query as a parameter
 
     # Convert the results to a list of dictionaries
     books = [{"isbn": result.isbn, "title": result.title, "author": result.author, "year": result.year} for result in results]
@@ -132,7 +127,7 @@ def search_books(db, search_query):
     return books
 
 
-# SEARCH ROUTE
+# ********* SEARCH ROUTE *************
 @app.route("/search", methods=["GET", "POST"])
 def search():
     if request.method == "POST":
@@ -144,8 +139,9 @@ def search():
 
 #trying to get google books to work
 '''
+DONT NEED THIS like i originally thought (dont need api key)
 def get_book_details(isbn):
-    api_key = "AIzaSyDltVf3cU12JB-9HH2MnZ0973NnMNFB2FE"
+    api_key = ""
     api_url = f"https://www.googleapis.com/books/v1/volumes?q=isbn:{isbn}&key={api_key}"
 
     response = requests.get(api_url)
@@ -168,7 +164,7 @@ def get_book_details(isbn):
     return None
 '''
 
-
+# GET BOOK DETAILS (Could be done within books too but this makes it cleaner)
 def get_book_details(isbn):
     # Query the database to get book details
     query = text("SELECT * FROM books WHERE isbn = :isbn")
@@ -186,17 +182,18 @@ def get_book_details(isbn):
 
     return None
 
+# LAB 2 GOOGLE BOOKS REVIEW
 def get_google_books_review_data(isbn):
     res = requests.get("https://www.googleapis.com/books/v1/volumes", params={"q": f"isbn:{isbn}"})
     if res.status_code == 200:
         data = res.json()
         if data["totalItems"] > 0:
-            book_data = data["items"][0]  # Assuming the first item is the desired one
+            book_data = data["items"][0]
             text_snippet = book_data.get("searchInfo", {}).get("textSnippet", "Description not available.")
             return {
                 "averageRating": book_data["volumeInfo"].get("averageRating", "N/A"),
                 "ratingsCount": book_data["volumeInfo"].get("ratingsCount", "N/A"),
-                "textSnippet": text_snippet
+                "textSnippet": text_snippet # this has the description of the book
             }
     return {"averageRating": "N/A", "ratingsCount": "N/A", "textSnippet": "Description not available."}
 
@@ -284,7 +281,7 @@ def book(isbn):
 
     return render_template('book.html', book=book, reviews=reviews, google_books_data=google_books_data)
 
-@app.route("/api/<isbn>") # NEW for task #4
+@app.route("/api/<isbn>") # NEW for task #4 ********
 def api_isbn(isbn):
     # Query the database for the book with the provided ISBN
     book = db.execute(text("SELECT * FROM books WHERE isbn = :isbn"), {"isbn": isbn}).fetchone()
