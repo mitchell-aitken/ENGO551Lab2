@@ -2,13 +2,14 @@ import os
 from flask import Flask, render_template, request, redirect, url_for, flash, abort
 from flask_session import Session
 from sqlalchemy import create_engine, Column, Integer, String, DateTime, ForeignKey
+from sqlalchemy.schema import UniqueConstraint
 from sqlalchemy.orm import scoped_session, sessionmaker
 from sqlalchemy import text
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 import requests
 from datetime import datetime
 from sqlalchemy.ext.declarative import declarative_base
-
+from sqlalchemy.exc import IntegrityError
 
 app = Flask(__name__)
 
@@ -186,12 +187,13 @@ class Review(Base):
     __tablename__ = 'reviews'
 
     id = Column(Integer, primary_key=True)
-    book_isbn = Column(String, ForeignKey('books.isbn'), nullable=False)  # Change 'isbn' to 'book_isbn'
-    user_id = Column(String, nullable=False)
+    book_isbn = Column(String, ForeignKey('books.isbn'), nullable=False)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)  # 'users.id' matches the 'id' column in the 'users' table
     rating = Column(Integer, nullable=False)
-    review_text = Column(String, nullable=False)  # Make sure this matches the attribute name in the template
+    review_text = Column(String, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
+    __table_args__ = (UniqueConstraint('book_isbn', 'user_id', name='uix_1'),)
 
 # Function to add a review
 def add_review(db, isbn, user_id, rating, comment):
@@ -219,29 +221,43 @@ def get_reviews(db, isbn):
 
 @app.route('/book/<isbn>', methods=['GET', 'POST'])
 def book(isbn):
-    if request.method == 'POST':
-        user_id = request.form.get('user_id')
+    if request.method == 'POST' and current_user.is_authenticated:
+        user_id = int(current_user.get_id())  # Cast user_id to integer
+        print(f"Current User ID: {user_id}")
         rating = int(request.form.get('rating'))
         comment = request.form.get('comment')
 
-        print(f"user_id: {user_id}, rating: {rating}, comment: {comment}")
-
-        # Check if the book with the given ISBN exists
-        book_exists = db.execute(text('SELECT * FROM books WHERE isbn = :isbn'), {'isbn': isbn}).fetchone()
-
-        if book_exists:
-            # Insert the review into the reviews table
-            db.execute(text('INSERT INTO reviews (isbn, user_id, rating, review_text) VALUES (:isbn, :user_id, :rating, :comment)'),
-                       {'isbn': isbn, 'user_id': user_id, 'rating': rating, 'comment': comment})
-            db.commit()
+        # Check for existing review
+        existing_review = db.execute(text('SELECT * FROM reviews WHERE isbn = :isbn AND user_id = :user_id'),
+                                     {'isbn': isbn, 'user_id': user_id}).fetchone()
+        if existing_review:
+            flash('You have already reviewed this book.')
+            print("Duplicate review attempt detected")  # Additional logging
             return redirect(url_for('book', isbn=isbn))
 
-    # Retrieve book details and reviews
+        # Ensure book exists
+        book_exists = db.execute(text('SELECT * FROM books WHERE isbn = :isbn'), {'isbn': isbn}).fetchone()
+        if not book_exists:
+            flash("Book not found.")
+            return redirect(url_for('index'))
+
+        try:
+            # Attempt to insert the review
+            db.execute(text(
+                'INSERT INTO reviews (isbn, user_id, rating, review_text) VALUES (:isbn, :user_id, :rating, :comment)'),
+                {'isbn': isbn, 'user_id': user_id, 'rating': rating, 'comment': comment})
+            db.commit()
+            flash('Your review has been added.')
+        except IntegrityError:
+            # Rollback in case of a constraint violation (e.g., duplicate review)
+            db.rollback()
+            flash('You have already reviewed this book.')
+        return redirect(url_for('book', isbn=isbn))
+
+    # Retrieve book details and reviews for GET requests or after handling POST
     book = db.execute(text('SELECT * FROM books WHERE isbn = :isbn'), {'isbn': isbn}).fetchone()
     reviews = db.execute(text('SELECT * FROM reviews WHERE isbn = :isbn ORDER BY created_at DESC'),
                          {'isbn': isbn}).fetchall()
-
-    # Pass 'comment' instead of 'review_text' to the template
     return render_template('book.html', book=book, reviews=reviews)
 
 

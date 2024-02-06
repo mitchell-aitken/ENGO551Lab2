@@ -33,12 +33,7 @@
         <ul>
             {% for review in reviews %}
             <li>
-                {% if review.user_id %}
-                User {{ review.user_id }}
-                {% else %}
-                Anonymous User
-                {% endif %}
-                rated it {{ review.rating }} and said: "{{ review.review_text }}" ({{ review.created_at }})
+                User {{ review.user_id }} rated it {{ review.rating }} and said: "{{ review.review_text }}" ({{ review.created_at }})
             </li>
             {% endfor %}
         </ul>
@@ -46,25 +41,36 @@
         <p>No reviews yet.</p>
         {% endif %}
 
-        <!-- Form to submit a review -->
+       <!-- Form to submit a review -->
         {% if current_user.is_authenticated %}
-        <form method="post">
-            <input type="hidden" name="user_id" value="{{ current_user.id }}">
+        <form method="post" action="{{ url_for('book', isbn=book.isbn) }}" onsubmit="this.submit.disabled = true;">
             <label for="rating">Rating:</label>
             <input type="number" name="rating" id="rating" min="1" max="5" required>
             <br>
             <label for="comment">Comment:</label>
             <textarea name="comment" id="comment" rows="4" cols="50" required></textarea>
             <br>
-            <input type="submit" value="Submit Review">
+            <input type="submit" value="Submit Review" name="submit">
         </form>
         {% else %}
         <p>Login to submit a review.</p>
         {% endif %}
 
+
         <!-- Back to Search link -->
         <a href="{{ url_for('search') }}">Back to Search</a>
     </section>
+
+    <!-- Display flash messages -->
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        <ul class="flashes">
+        {% for message in messages %}
+          <li>{{ message }}</li>
+        {% endfor %}
+        </ul>
+      {% endif %}
+    {% endwith %}
 </body>
 
 </html>
