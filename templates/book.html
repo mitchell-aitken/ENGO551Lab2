@@ -23,6 +23,9 @@
     <section>
         <!-- Display book details -->
         <h2>{{ book.title }}</h2>
+        {% if google_books_data.textSnippet %}
+            <p> <i> {{ google_books_data.textSnippet | safe }} </i> </p>
+        {% endif %}
         <p>Author: {{ book.author }}</p>
         <p>Year: {{ book.year }}</p>
         <p>ISBN: {{ book.isbn }}</p>
@@ -40,6 +43,18 @@
         {% else %}
         <p>No reviews yet.</p>
         {% endif %}
+
+        <!-- Display Google Books review data -->
+        {% if google_books_data %}
+            <!-- Display Google Books review data -->
+            <div>
+                <h3>Google Books Reviews</h3>
+                <p>Average Rating: {{ google_books_data.averageRating }}</p>
+                <p>Ratings Count: {{ google_books_data.ratingsCount }}</p>
+            </div>
+        {% endif %}
+
+
 
        <!-- Form to submit a review -->
         {% if current_user.is_authenticated %}

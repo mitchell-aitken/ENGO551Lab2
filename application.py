@@ -1,5 +1,5 @@
 import os
-from flask import Flask, render_template, request, redirect, url_for, flash, abort
+from flask import Flask, render_template, request, redirect, url_for, flash, abort, jsonify
 from flask_session import Session
 from sqlalchemy import create_engine, Column, Integer, String, DateTime, ForeignKey
 from sqlalchemy.schema import UniqueConstraint
@@ -29,6 +29,10 @@ db = scoped_session(sessionmaker(bind=engine))
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
 
+
+import requests
+res = requests.get("https://www.googleapis.com/books/v1/volumes", params={"q": "isbn:080213825X"})
+print(res.json())
 
 # User model
 class User(UserMixin):
@@ -164,6 +168,7 @@ def get_book_details(isbn):
     return None
 '''
 
+
 def get_book_details(isbn):
     # Query the database to get book details
     query = text("SELECT * FROM books WHERE isbn = :isbn")
@@ -180,6 +185,22 @@ def get_book_details(isbn):
         return book_details
 
     return None
+
+def get_google_books_review_data(isbn):
+    res = requests.get("https://www.googleapis.com/books/v1/volumes", params={"q": f"isbn:{isbn}"})
+    if res.status_code == 200:
+        data = res.json()
+        if data["totalItems"] > 0:
+            book_data = data["items"][0]  # Assuming the first item is the desired one
+            text_snippet = book_data.get("searchInfo", {}).get("textSnippet", "Description not available.")
+            return {
+                "averageRating": book_data["volumeInfo"].get("averageRating", "N/A"),
+                "ratingsCount": book_data["volumeInfo"].get("ratingsCount", "N/A"),
+                "textSnippet": text_snippet
+            }
+    return {"averageRating": "N/A", "ratingsCount": "N/A", "textSnippet": "Description not available."}
+
+
 
 
 #not sure if I actually need this or not
@@ -254,15 +275,51 @@ def book(isbn):
             flash('You have already reviewed this book.')
         return redirect(url_for('book', isbn=isbn))
 
+
+
     # Retrieve book details and reviews for GET requests or after handling POST
     book = db.execute(text('SELECT * FROM books WHERE isbn = :isbn'), {'isbn': isbn}).fetchone()
     reviews = db.execute(text('SELECT * FROM reviews WHERE isbn = :isbn ORDER BY created_at DESC'),
                          {'isbn': isbn}).fetchall()
-    return render_template('book.html', book=book, reviews=reviews)
+
+    # Fetch Google Books review data
+    google_books_data = get_google_books_review_data(isbn)
+
+    return render_template('book.html', book=book, reviews=reviews, google_books_data=google_books_data)
+
+@app.route("/api/<isbn>")
+def api_isbn(isbn):
+    # Query the database for the book with the provided ISBN
+    book = db.execute(text("SELECT * FROM books WHERE isbn = :isbn"), {"isbn": isbn}).fetchone()
+
+    # If the book doesn't exist, return a 404 error
+    if book is None:
+        return jsonify({"error": "Invalid ISBN"}), 404
+
+    # Query the database for review statistics for the book
+    review_stats = db.execute(text("""
+        SELECT COUNT(*) AS review_count, AVG(rating) AS average_rating
+        FROM reviews
+        WHERE isbn = :isbn
+        GROUP BY isbn
+    """), {"isbn": isbn}).fetchone()
+
+    # Prepare the JSON response
+    response = {
+        "title": book.title,
+        "author": book.author,
+        "publishedDate": book.year,  # Assuming 'year' corresponds to 'publishedDate'
+        "ISBN_10": isbn if len(isbn) == 10 else None,
+        "ISBN_13": isbn if len(isbn) == 13 else None,
+        "reviewCount": review_stats.review_count if review_stats else 0,
+        "averageRating": float(review_stats.average_rating) if review_stats else 0
+    }
+
+    return jsonify(response)
+
 
 
 if __name__ == "__main__":
     app.secret_key = os.urandom(24)
     app.run(debug=True)
 
-#  google_books_api_key = "AIzaSyDltVf3cU12JB-9HH2MnZ0973NnMNFB2FE"
